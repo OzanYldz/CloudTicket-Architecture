@@ -1,9 +1,9 @@
 # CloudTicket: Highly Available AWS Web Infrastructure
 
 ## About this project
-This is my hands-on AWS infrastructure project. Instead of following isolated tutorials, I wanted to build a realistic environment that combines networking, load balancing, Linux administration, Auto Scaling, and managed databases into a cohesive 3-tier architecture.
+This is my AWS infrastructure project. Instead of following isolated tutorials, I wanted to build a realistic environment that combines networking, load balancing, Linux administration, Auto Scaling, and managed databases into a cohesive 3-tier architecture.
 
-The scenario simulates an online ticket platform experiencing sudden traffic spikes. The goal was not only to make it work, but also to understand *why* each AWS service was needed and how they connect under real-world conditions.
+The scenario simulates an online ticket platform experiencing sudden traffic spikes. The goal was not only to make it work, but also to understand *why* each AWS service was needed and how they connect under real production conditions.
 
 ```mermaid
 graph TD
@@ -73,10 +73,10 @@ Ticket sales create unpredictable traffic spikes. I configured Auto Scaling to a
 Creating an Amazon Machine Image (AMI) ensures that every new EC2 instance launched by the Auto Scaling Group is identical. It boots up already configured with the Nginx web server and application code, ready to serve traffic immediately without manual bootstrapping delays.
 
 **Why Amazon RDS instead of MySQL on EC2? (v2.0)**  
-Running a database on an EC2 instance creates operational overhead: OS patching, manual backups, and disk management are your responsibility, and a hardware failure means data loss. Amazon RDS provides automated backups, point-in-time recovery, and Multi-AZ synchronous replication with automatic failover in under 60 seconds if the primary host goes down.
+Running a database on an EC2 instance creates operational overhead: OS patching, manual backups, and disk management are your responsibility, and a hardware failure means data loss. Amazon RDS provides automated backups, point in time recovery, and Multi-AZ synchronous replication with automatic failover in under 60 seconds if the primary host goes down.
 
 **Why Security Group Chaining? (v2.0)**  
-Instead of whitelisting specific IP addresses on the database firewall (port 3306), I chained the database security group directly to the web security group (`cloudticket-ec2-sg`). Because Auto Scaling dynamically launches and terminates EC2 instances with changing private IPs, reference-based security groups ensure that any authorized web server can talk to the database with zero manual IP management.
+Instead of whitelisting specific IP addresses on the database firewall (port 3306), I chained the database security group directly to the web security group (`cloudticket-ec2-sg`). Because Auto Scaling dynamically launches and terminates EC2 instances with changing private IPs, security groups linked by ID ensure that any authorized web server can talk to the database with zero manual IP management.
 
 ---
 
@@ -136,7 +136,7 @@ Initially, instances might fail the Load Balancer health checks if security is m
 **Challenge 3: Database Connection Timeout (Chaos Test & Incident 001)**  
 To test how firewall misconfigurations behave in production, I intentionally deleted the port 3306 inbound rule on `cloudticket-db-sg`. 
 * **Symptom:** The EC2 web client hung for 60 seconds during the TCP handshake before returning `ERROR 2003 (110 "Connection timed out")`. Because AWS Security Groups silently drop unauthorized packets rather than actively rejecting them, the client kept retrying until the Linux TCP timeout expired.
-* **Solution:** Verified DNS resolution and route tables (both were healthy), spotted the missing inbound rule in the database security group, and restored the reference-based chaining rule pointing to `cloudticket-ec2-sg`.
+* **Solution:** Verified DNS resolution and route tables (both were healthy), spotted the missing inbound rule in the database security group, and restored the security group chaining rule pointing to `cloudticket-ec2-sg`.
 * **Incident writeup:** Documented the full incident, timeline, and preventative measures in [INCIDENT-001-RDS-TIMEOUT.md](INCIDENT-001-RDS-TIMEOUT.md).
 
 ![Chaos Timeout](screenshots/Security/Chaos%20Test%20Connection%20Timeout.png)
@@ -150,7 +150,7 @@ During this project, I gained practical experience in:
 - Building highly available architectures with Application Load Balancers and Target Groups.
 - Creating Launch Templates, custom AMIs, and Auto Scaling Dynamic Policies.
 - Provisioning managed databases with Amazon RDS MySQL and DB Subnet Groups.
-- Implementing Security Group Chaining for dynamic, reference-based firewall rules.
+- Implementing Security Group Chaining for dynamic firewall rules linked by security group ID.
 - Conducting chaos engineering experiments to observe failure modes and writing incident postmortems.
 - Managing Linux servers via SSH, resolving permission barriers, and configuring Nginx.
 
