@@ -7,40 +7,28 @@ The scenario simulates an online ticket platform experiencing sudden traffic spi
 
 ```mermaid
 graph TD
-    Client([Internet / Users]) --> |HTTP:80| IGW[Internet Gateway]
+    Client(["Internet / Users"]) -->|"HTTP: 80"| IGW["Internet Gateway"]
     
-    subgraph "AWS Cloud"
-        IGW --> ALB
+    subgraph AWS["AWS Cloud"]
+        IGW --> ALB["Application Load Balancer (ALB)"]
         
-        subgraph "Virtual Private Cloud (VPC)"
-            ALB(Application Load Balancer)
-            
-            subgraph "Web Tier - Public Subnets"
-                subgraph "Public Subnet (us-east-1a)"
-                    EC2_1[EC2 Web Server - Nginx]
-                end
-                
-                subgraph "Public Subnet (us-east-1b)"
-                    EC2_2[EC2 Web Server - Nginx]
-                end
+        subgraph VPC["Virtual Private Cloud (VPC)"]
+            subgraph WebTier["Web Tier - Public Subnets"]
+                EC2_1["EC2 Web Server (us-east-1a)"]
+                EC2_2["EC2 Web Server (us-east-1b)"]
             end
             
-            ALB -->|Health Checks & Routing| EC2_1
-            ALB -->|Health Checks & Routing| EC2_2
+            ALB -->|"Health Checks"| EC2_1
+            ALB -->|"Health Checks"| EC2_2
 
-            subgraph "Database Tier - Private Subnets"
-                subgraph "Private Subnet (us-east-1a)"
-                    RDS_Primary[(Amazon RDS MySQL - Primary)]
-                end
-                
-                subgraph "Private Subnet (us-east-1b)"
-                    RDS_Standby[(Amazon RDS MySQL - Standby)]
-                end
+            subgraph DBTier["Database Tier - Private Subnets"]
+                RDS_Primary[("Amazon RDS MySQL Primary")]
+                RDS_Standby[("Amazon RDS MySQL Standby")]
             end
             
-            EC2_1 -->|MySQL:3306 (SG Chained)| RDS_Primary
-            EC2_2 -->|MySQL:3306 (SG Chained)| RDS_Primary
-            RDS_Primary -.->|Sync Replication| RDS_Standby
+            EC2_1 -->|"MySQL: 3306"| RDS_Primary
+            EC2_2 -->|"MySQL: 3306"| RDS_Primary
+            RDS_Primary -.->|"Sync Replication"| RDS_Standby
         end
     end
 ```
