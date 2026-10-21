@@ -107,6 +107,39 @@ To enforce strict least privilege, the database has `Publicly Accessible: No` an
 |:---:|:---:|:---:|
 | ![RDS MySQL](screenshots/Database/RDS%20MySQL%20Available.png) | ![EC2 Query](screenshots/Compute/EC2%20to%20RDS%20Connection%20and%20Query.png) | ![SG Rule](screenshots/Security/Security%20Group%20Chaining%20Rule.png) |
 
+### 6. Infrastructure as Code & FinOps (Terraform & Infracost - v3.0)
+In Version 3.0, I migrated the entire manual AWS setup into declarative Infrastructure as Code using Terraform and implemented FinOps cost estimation before deploying.
+
+#### Architectural Highlights:
+* **Remote State with Distributed Locking:** State is stored in an S3 bucket with server side encryption and versioning, locked via a DynamoDB table (`cloudticket-tf-locks`) to prevent race conditions during updates.
+* **19 Resources in a Single Command:** The Terraform code provisions the VPC (`10.0.0.0/16`), 2 public subnets, 2 private subnets, Internet Gateway, route tables, 3 chained security groups, dynamic Amazon Linux 2023 AMI lookup, EC2 instance with automated user data, public Application Load Balancer with target group health checks, and a Multi-AZ Amazon RDS MySQL database.
+* **Cost Visibility with Infracost:** Before provisioning, I used Infracost to calculate expected monthly spend directly inside the terminal. The scan revealed that out of 19 detected resources, 16 networking and security components are free ($0.00/mo), while compute, database, and load balancing account for the active spend.
+
+| Terraform Apply Complete | Live Application Load Balancer | Infracost Cost Report |
+|:---:|:---:|:---:|
+| ![Terraform Apply](screenshots/v3.0/04%20Terraform%20Apply%20Success.png) | ![ALB Response](screenshots/v3.0/04%20ALB%20Live%20Web%20Response.png) | ![Infracost](screenshots/v3.0/05%20Infracost%20Breakdown%20Report.png) |
+
+#### Terraform Project Structure (`terraform/` directory):
+```text
+terraform/
+├── backend.tf          # S3 remote state and DynamoDB state locking
+├── compute.tf          # Dynamic AMI, EC2 user data, ALB, Target Group, and Listener
+├── database.tf         # Multi-AZ RDS MySQL and DB subnet group
+├── outputs.tf          # ALB DNS and RDS MySQL connection endpoints
+├── security_groups.tf  # 3-tier security group chaining (ALB -> EC2 -> RDS)
+├── variables.tf        # Modular CIDR blocks and target Availability Zones
+├── vpc.tf              # VPC, subnets, Internet Gateway, and route table associations
+└── .gitignore          # Excludes .terraform local caches and state artifacts
+```
+
+#### Quick Start Deployment:
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+```
+
 ---
 
 ## 🛠️ Challenges & Troubleshooting
@@ -141,6 +174,10 @@ During this project, I gained practical experience in:
 - Implementing Security Group Chaining for dynamic firewall rules linked by security group ID.
 - Conducting chaos engineering experiments to observe failure modes and writing incident postmortems.
 - Managing Linux servers via SSH, resolving permission barriers, and configuring Nginx.
+- Writing clean, modular Terraform configurations to provision 19 AWS resources in a single execution.
+- Managing remote infrastructure state securely in S3 with DynamoDB distributed state locking.
+- Practicing FinOps by using Infracost to calculate cloud infrastructure spend before deployment.
+- Performing zero waste teardowns with automated destruction to prevent idle cloud costs.
 
 ---
 
@@ -148,18 +185,28 @@ During this project, I gained practical experience in:
 
 ```text
 CloudTicket-Architecture/
+├── terraform/                       # Infrastructure as Code (Terraform)
+│   ├── backend.tf
+│   ├── compute.tf
+│   ├── database.tf
+│   ├── outputs.tf
+│   ├── security_groups.tf
+│   ├── variables.tf
+│   ├── vpc.tf
+│   └── .gitignore
+├── screenshots/
+│   ├── Auto Scaling/
+│   ├── Compute/
+│   ├── Database/
+│   ├── Error/
+│   ├── Extra/
+│   ├── Load Balancing/
+│   ├── Networking/
+│   ├── Security/
+│   └── v3.0/                        # Terraform, ALB, and Infracost verification
+├── INCIDENT-001-RDS-TIMEOUT.md      # Root Cause Analysis postmortem
 ├── README.md
-├── INCIDENT-001-RDS-TIMEOUT.md
-├── index.html
-└── screenshots/
-    ├── Auto Scaling/
-    ├── Compute/
-    ├── Database/
-    ├── Error/
-    ├── Extra/
-    ├── Load Balancing/
-    ├── Networking/
-    └── Security/
+└── index.html
 ```
 
 ---
@@ -167,6 +214,6 @@ CloudTicket-Architecture/
 ## 🚀 Future Roadmap (Project Status)
 
 ✅ **Version 1.0:** Highly Available Web Infrastructure (ALB, ASG, Multi-AZ)  
-✅ **Version 2.0:** 3-Tier RDS MySQL Architecture, Security Group Chaining & Chaos Postmortem (Current)  
-⏳ **Version 3.0:** Infrastructure as Code (Migrate architecture to Terraform + Infracost + S3 Remote State)  
+✅ **Version 2.0:** 3-Tier RDS MySQL Architecture, Security Group Chaining & Chaos Postmortem  
+✅ **Version 3.0:** Infrastructure as Code & FinOps (Terraform, Multi-AZ RDS, S3 Remote State, Infracost) (Latest)  
 ⏳ **Version 4.0:** Containerization & CI/CD (Docker, ECS/EKS)  
